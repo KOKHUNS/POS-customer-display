@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crimson POS · จอฝั่งลูกค้า</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:#0F172A;color:#E2E8F0;font-family:'Noto Sans Thai',system-ui,sans-serif}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#334155;border-radius:9px}
+.fade{animation:f .35s ease}@keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+@keyframes pl{50%{opacity:.45}}.pl{animation:pl 1.4s infinite}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+const {useState,useEffect,useRef}=React;
+const html=htm.bind(React.createElement);
+const THB=n=>'฿'+n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const calc=(c,d)=>{const sub=c.reduce((a,i)=>a+i.p*i.q,0),dv=sub*d/100,tax=(sub-dv)*.07;return{sub,dv,tax,total:sub-dv+tax}};
+function Qr({seed}){
+  let x=Math.floor(seed*100)+7;const r=()=>(x=(x*9301+49297)%233280)/233280;
+  const N=21,cells=[];
+  const fin=(i,j)=>[[0,0],[0,N-7],[N-7,0]].some(([a,b])=>i>=a&&i<a+7&&j>=b&&j<b+7);
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+    let on;
+    if(fin(i,j)){const a=i%(N-7)%14,b=j%(N-7)%14;const li=i<7?i:i-(N-7),lj=j<7?j:j-(N-7);on=li==0||li==6||lj==0||lj==6||(li>1&&li<5&&lj>1&&lj<5)}
+    else on=r()>.52;
+    if(on)cells.push(html`<rect key=${i+'-'+j} x=${j} y=${i} width="1" height="1"/>`)}
+  return html`<svg viewBox="-1 -1 23 23" class="w-full h-full" fill="#0B1E3D"><rect x="-1" y="-1" width="23" height="23" fill="#fff"/>${cells}</svg>`}
+
+function Display({s,onBack}){
+  const {cart,status,disc,menu=[],cust=''}=s,c=calc(cart,disc);
+  const [k,setK]=useState(0);
+  useEffect(()=>{const t=setInterval(()=>setK(v=>(v+1)%3),4000);return()=>clearInterval(t)},[]);
+  const S=[['🔥','Combo Set 20% Off','Burger + Fries + Iced Tea every weekday 14:00–17:00','from-red-700 to-red-900'],['💳','Join Crimson Club','Sign up at the counter and earn 1 point per ฿25','from-sky-800 to-[#0B1E3D]'],['🎂','Free Lava Cake','On orders over ฿800 this week','from-[#1E293B] to-red-800']][k];
+  const B={idle:['Ready','bg-slate-600/40 text-slate-200'],waiting:['Waiting for Payment','bg-red-600 text-white pl'],paid:['Payment Success','bg-emerald-500 text-white']}[status];
+  return html`<div class="min-h-screen bg-[#0F172A] p-4 lg:p-6 grid lg:grid-cols-5 gap-5 fade">
+  <section class="lg:col-span-3 rounded-2xl bg-[#102A43] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
+    <header class="px-7 py-5 bg-[#0B1E3D] border-b-2 border-red-600 flex justify-between items-center">
+      <div><div class="text-xl font-bold">Crimson Kitchen</div><div class="text-xs text-slate-400">ใบแจ้งรายการ · Your order</div></div>
+      ${cust&&html`<div class="text-right fade"><div class="text-xs text-slate-400">ลูกค้า</div><div class="text-xl font-semibold">คุณ${cust}</div></div>`}
+      ${onBack&&html`<button onClick=${onBack} class="text-xs px-3 py-1.5 rounded-lg border border-white/15 hover:bg-white/10">Back to cashier</button>`}
+    </header>
+    <div class="flex-1 px-7 py-4 space-y-1 overflow-auto">
+      ${cart.length?cart.map(i=>html`<div key=${i.id} class="flex items-center gap-4 py-3 border-b border-white/5 fade">
+        <span class="text-3xl">${i.e}</span><div class="flex-1"><div class="font-medium text-lg">${i.n}</div><div class="text-sm text-slate-400">${i.q} × ${THB(i.p)}</div></div>
+        <div class="text-lg font-semibold">${THB(i.p*i.q)}</div></div>`)
+      :html`<div class="h-full grid place-items-center text-slate-500 py-20">Items will appear here as the cashier scans them</div>`}
+    </div>
+    <footer class="px-7 py-5 bg-[#0B1E3D]/70 space-y-1.5 text-slate-300">
+      <div class="flex justify-between"><span>Subtotal</span><span>${THB(c.sub)}</span></div>
+      ${disc>0&&html`<div class="flex justify-between items-center text-red-400 font-semibold"><span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-red-600 text-white text-xs">−${disc}%</span>ส่วนลด</span><span>−${THB(c.dv)}</span></div>`}
+      <div class="flex justify-between"><span>VAT 7%</span><span>${THB(c.tax)}</span></div>
+      <div class="flex justify-between items-end pt-3 mt-2 border-t border-white/10"><span class="text-lg">Total</span>
+        <span class="text-5xl font-bold text-white">${THB(c.total)}</span></div>
+    </footer>
+  </section>
+  <aside class="lg:col-span-2 flex flex-col gap-5">
+    <div key=${k} class=${'fade rounded-2xl p-5 bg-gradient-to-br min-h-[110px] border border-white/10 '+S[3]}>
+      <div class="text-4xl mb-3">${S[0]}</div><div class="text-2xl font-bold">${S[1]}</div><p class="text-slate-200/80 mt-1">${S[2]}</p>
+      <div class="flex gap-1.5 mt-5">${[0,1,2].map(i=>html`<span key=${i} class=${'h-1.5 rounded-full transition-all '+(i==k?'w-8 bg-white':'w-2 bg-white/30')}></span>`)}</div></div>
+    <div class="rounded-2xl bg-[#102A43] border border-white/10 p-5 flex-1 min-h-0 flex flex-col">
+      <div class="flex items-baseline justify-between mb-3"><div class="font-semibold">เมนูอาหาร</div><div class="text-xs text-slate-400">${disc>0?'ราคาหลังหักส่วนลด '+disc+'%':'Menu'}</div></div>
+      <div class="grid grid-cols-2 gap-2 overflow-auto">${menu.map(p=>{const q=(cart.find(i=>i.id==p.id)||{}).q;return html`<div key=${p.id} class=${'relative rounded-xl p-3 border transition '+(q?'border-red-500 bg-red-600/10':'border-white/10 bg-[#0B1E3D]/60')+(p.s<=0?' opacity-40':'')}>
+        <div class="text-2xl">${p.e}</div><div class="text-sm font-medium leading-tight mt-1">${p.n}</div>
+        <div class="text-red-400 font-semibold text-sm mt-1">${p.s<=0?'หมด':disc>0?html`<s class="text-slate-500 text-xs mr-1">${THB(p.p)}</s>${THB(p.p*(100-disc)/100)}`:THB(p.p)}</div>
+        ${q&&html`<span class="absolute top-2 right-2 text-[11px] bg-red-600 rounded-full px-2 py-0.5">×${q}</span>`}</div>`})}</div></div>
+    <div class="rounded-2xl bg-[#102A43] border border-white/10 p-4 flex flex-col items-center text-center">
+      <div class="text-sm text-slate-400 mb-3">Scan to pay · PromptPay</div>
+      <div class=${'w-40 h-40 rounded-xl overflow-hidden transition '+(status=='idle'||!cart.length?'opacity-25 blur-[2px]':'ring-4 ring-red-600/70')}><${Qr} seed=${c.total}/></div>
+      <div class=${'mt-5 px-5 py-2 rounded-full font-semibold '+B[1]}>${B[0]}</div>
+      ${status=='paid'&&html`<div class="mt-3 text-emerald-300 fade">Thank you! ขอบคุณ${cust?' คุณ'+cust:''}ที่ใช้บริการ</div>`}
+    </div></aside></div>`}
+
+
+const EXEC_URL=new URLSearchParams(location.search).get('exec')||'https://script.google.com/macros/s/AKfycbwga89euyaQRZ9KyJQV1TW4ggb4e82fTp98nobB8L6Vkks7PkL7p9-R9SRsglo-JDw/exec';
+function Root(){
+  const [s,setS]=useState({cart:[],status:'idle',disc:0,menu:[],cust:''}),[ok,setOk]=useState(null);
+  useEffect(()=>{
+    let stop=false,last=-1,fail=false;
+    const tick=async()=>{
+      try{
+        const r=await fetch(EXEC_URL+(EXEC_URL.includes('?')?'&':'?')+'action=display&_='+Date.now());
+        const d=await r.json();fail=false;setOk(true);
+        if(d.ts!==last){last=d.ts;if(d.state)setS(d.state)}
+      }catch(e){fail=true;setOk(false)}
+      if(!stop)setTimeout(tick,fail?5000:1500);
+    };
+    if(!EXEC_URL.includes('PASTE'))tick();
+    return()=>{stop=true};
+  },[]);
+  if(EXEC_URL.includes('PASTE'))return html`<div class="min-h-screen grid place-items-center text-center p-8 text-slate-300">ยังไม่ได้ตั้งค่า EXEC_URL<br/>แก้บรรทัด const EXEC_URL ในไฟล์นี้ เป็นลิงก์ Web app ที่ลงท้ายด้วย /exec</div>`;
+  return html`<div><${Display} s=${s}/>${ok===false&&html`<div class="fixed bottom-3 left-3 text-xs px-3 py-1.5 rounded-full bg-red-600/90">ขาดการเชื่อมต่อ กำลังลองใหม่…</div>`}</div>`;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${Root}/>`);
+</script></body></html>
